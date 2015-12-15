@@ -1,6 +1,6 @@
 # states -> list(int)
 # actions -> list(int)
-# deltas -> dict( (state, action, futureState) -> probability )
+# deltas -> map( (state, action, futureState) -> probability )
 
 class MDPFull:
     def __init__(self, states, actions, deltas):
@@ -14,10 +14,10 @@ class MDPFull:
 # state s and action act with estimated 
 # intermediate probabilities pEst        
 def sumTrans(mdp, s, act, pEst):
-    return sum(map(lambda sPrime: mdp.deltas(s, act, sPrime) * pEst[sPrime], mdp.states))
+    return sum(map(lambda sPrime: mdp.deltas[(s, act, sPrime)] * pEst[sPrime], mdp.states))
 
 # main function computing value iteration on PrMin
-def valIterQuantReachMin(mdp, S0min, S1min, epislon):
+def valIterQuantReachMin(mdp, S0min, S1min, epsilon):
     # initialise first guess probabilities
     # in articles this is denoted as 'xs'
     p = { s: 0 for s in mdp.states } # all zero
@@ -25,17 +25,17 @@ def valIterQuantReachMin(mdp, S0min, S1min, epislon):
         p[s] = 1
     
     #init done, now start value iteration
-    leastChange = epsilon + 1 # first ensure we enter the iteration
+    stillChanging = epsilon + 1 # first ensure we enter the iteration
     
-    unknowns = [s in mdp.states if (s not in S1min and s not in S0min) ]
-    while leastChange > epsilon:
+    unknowns = [s for s in mdp.states if (s not in S1min and s not in S0min) ]
+    while stillChanging > epsilon:
         # first compute real updates    
         pUpdate = {}
         for s in unknowns:
-            pUpdate[s] = min(map(mdp.actions,  lambda act: sumTrans(mdp, s, act, p)))
+            pUpdate[s] = min(map(lambda act: sumTrans(mdp, s, act, p), mdp.actions))
             
         # now test for stop criterion
-        leastDelta = min([abs(p[s] - pUpdate[s]) for s in unknowns ])
+        stillChanging = max([abs(p[s] - pUpdate[s]) for s in unknowns ])
         
         # also update our probabilities
         for s in unknowns:
@@ -45,7 +45,7 @@ def valIterQuantReachMin(mdp, S0min, S1min, epislon):
     return p
     
 # main function computing value iteration on PrMax
-def valIterQuantReachMax(mdp, S0max, S1max, epislon):
+def valIterQuantReachMax(mdp, S0max, S1max, epsilon):
     # initialise first guess probabilities
     # in articles this is denoted as 'xs'
     p = { s: 0 for s in mdp.states } # all zero
@@ -53,17 +53,17 @@ def valIterQuantReachMax(mdp, S0max, S1max, epislon):
         p[s] = 1
     
     #init done, now start value iteration
-    leastChange = epsilon + 1 # first ensure we enter the iteration
+    stillChanging = epsilon + 1 # first ensure we enter the iteration
     
-    unknowns = [s in mdp.states if (s not in S1max and s not in S0max) ]
-    while leastChange > epsilon:
+    unknowns = [s for s in mdp.states if (s not in S1max and s not in S0max) ]
+    while stillChanging > epsilon:
         # first compute real updates    
         pUpdate = {}
         for s in unknowns:
-            pUpdate[s] = max(map(mdp.actions,  lambda act: sumTrans(mdp, s, act, p)))
+            pUpdate[s] = max(map(lambda act: sumTrans(mdp, s, act, p), mdp.actions))
             
         # now test for stop criterion
-        leastDelta = min([abs(p[s] - pUpdate[s]) for s in unknowns ])
+        stillChanging = max([abs(p[s] - pUpdate[s]) for s in unknowns ])
         
         # also update our probabilities
         for s in unknowns:
@@ -80,7 +80,9 @@ def example6():
     actions = { v: k for k, v in actionLabels.items() }
     
     # init all combinations to zero
-    deltas = { (s, a, sprime): 0 for s in states for a in actions for sprime in states }
+    deltas = { (s, a, sprime): 0 for s in states.values() 
+                                 for a in actions.values() 
+                                 for sprime in states.values() }
     
     # state 0 transitions
     deltas[(states["init"], actions["go"], states["run"])] = 1 
@@ -99,15 +101,15 @@ def example6():
    
     # state 3, action 3 transition 
     deltas[(states["fail"], actions["stop"], states["fail"])] = 1.0
-    
-    mdp = MDPFull([s for name, s in states], [a for name, a in actions], deltas)
+        
+    mdp = MDPFull([s for s in states.values()], [a for a in actions.values()], deltas)
     
     S0max = [states["fail"]]
     S1max = [states["succ"]]
 
-    epsilon = 0.01
+    epsilon = 0.001
     
-    probs = valIterQuantReachMax(mdp, S0max, S1max, epislon)
+    probs = valIterQuantReachMax(mdp, S0max, S1max, epsilon)
     
     print(probs)
     
